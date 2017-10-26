@@ -15,6 +15,8 @@
 #define ENCODE 0,16,1       
 #define DECODE 15,-1,-1     
 
+#define W_DEBUG 0
+
 int gIPTransform[64] =
 {
 	58, 50, 42, 34, 26, 18, 10, 2,
@@ -89,6 +91,33 @@ int gIPTranspose[64] =
 	33, 1, 41, 9, 49, 17, 57, 25
 };
 
+char debugencryptfilename[] = "encryptdebug.txt";
+char debugdecryptfilename[] = "decryptdebug.txt";
+
+void printBitsToFile(char *filename, char *bits, int len, char *memo = NULL)
+{
+	FILE *file;
+	fopen_s(&file, filename, "a");
+
+	if (memo != NULL)
+	{
+		fprintf_s(file,memo);
+	}
+
+	for (int i = 0; i < len; i++)
+	{
+		fprintf_s(file, "%1d", bits[i]);
+
+		if ((i - 3) % 4 == 0)
+		{
+			fprintf_s(file, " ");
+		}
+
+	}
+	fprintf_s(file, "\n");
+	fclose(file);
+}
+
 // get bits array(0,1) from a char array
 char *getBits(char *data, int dataLen)
 {
@@ -103,9 +132,9 @@ char *getBits(char *data, int dataLen)
 
 	for (int i = 0; i < dataLen; i++)
 	{
+		int temp = data[i];
 		for (int j = 0; j < BYTE_TO_BIT; j++)
 		{
-			int temp = data[i];
 			bits[i*BYTE_TO_BIT + j] = (temp >> (BYTE_TO_BIT - j - 1)) & 1;
 		}
 	}
@@ -165,7 +194,7 @@ char *mergeBits(char *left, int leftLen, char *right, int rightLen)
 	}
 	for (int i = 0; i < rightLen; i++)
 	{
-		merged[leftLen + i] = left[i];
+		merged[leftLen + i] = right[i];
 	}
 
 	return merged;
@@ -184,6 +213,19 @@ char *xorBits(char *bits1, char *bits2, int len)
 	return xoredBits;
 }
 
+// transform the bits based on the offset
+char * BatchTransform(char *bits, int *offset, int len)
+{
+	char *transfomedBits = new char[len];
+
+	for (int i = 0; i < len; i++)
+	{
+		transfomedBits[i] = bits[offset[i] - 1];
+	}
+
+	return transfomedBits;
+}
+
 char ** getRoundKeys(char *key, int roundNum)
 {
 	char **roundKeys = new char*[roundNum];
@@ -193,13 +235,8 @@ char ** getRoundKeys(char *key, int roundNum)
 	//}
 
 	char *blockBits = getBits(key, KEY_LENGTH);
-	char *transformedBits = new char[56];
-	for (int i = 0; i < 56; i++)
-	{
-		//int temp = gKeyTransorm[i] - 1;
-		//transformedBits[temp - temp/8] = blockBits[i];
-		transformedBits[i] = blockBits[gKeyTransorm[i] - 1];
-	}
+	char *transformedBits = NULL;
+	transformedBits = BatchTransform(blockBits, gKeyTransorm, 56);
 	delete[] blockBits;
 
 	for (int i = 0; i < roundNum; i++)
@@ -207,7 +244,7 @@ char ** getRoundKeys(char *key, int roundNum)
 		char *shiftedBits = new char[56];
 		int shift = gKeyCircleShift[i];
 		char *temp = new char[shift];
-		char *keyBits = new char[48];
+		char *keyBits;
 		
 		// left
 		for (int j = 0; j < shift; j++)
@@ -242,10 +279,11 @@ char ** getRoundKeys(char *key, int roundNum)
 		}
 
 		// apply the compress transform and get the round key
-		for (int j = 0; j < 48; j++)
+		keyBits = BatchTransform(shiftedBits,gCompressTransform,48);
+		/*for (int j = 0; j < 48; j++)
 		{
 			keyBits[j] = shiftedBits[gCompressTransform[j] - 1];
-		}
+		}*/
 
 		roundKeys[i] = keyBits;
 
@@ -256,31 +294,6 @@ char ** getRoundKeys(char *key, int roundNum)
 	}
 
 	return roundKeys;
-}
-
-char * IPTransform(char *data, int dLen)
-{
-	char *dataBits = getBits(data, dLen);
-	char *transformedBits = new char[dLen*BYTE_TO_BIT];
-
-	for (int i = 0; i < dLen*BYTE_TO_BIT; i++)
-	{
-		transformedBits[i] = dataBits[gIPTransform[i] - 1];
-	}
-
-	return transformedBits;
-}
-
-char * ExtentedTransform(char *bits, int transformLen)
-{
-	char *transformedBits = new char[transformLen];
-
-	for (int i = 0; i < transformLen; i++)
-	{
-		transformedBits[i] = bits[gExtentedTransform[i] - 1];
-	}
-
-	return transformedBits;
 }
 
 char * SBoxTransform(char *bits)
@@ -304,38 +317,13 @@ char * SBoxTransform(char *bits)
 	return transfomedBits;
 }
 
-char * PBoxTransform(char *bits)
-{
-	char *transfomedBits = new char[32];
-
-	for (int i = 0; i < 32; i++)
-	{
-		transfomedBits[i] = bits[gPBox[i] - 1];
-	}
-
-	return transfomedBits;
-}
-
-char * IPTranspose(char *bits)
-{
-	char *transfomedBits = new char[32];
-
-	for (int i = 0; i < 32; i++)
-	{
-		transfomedBits[i] = bits[gPBox[i] - 1];
-	}
-
-	return transfomedBits;
-}
-
 // encrypt 0,16,1
 // decrypt 15,-1,-1
 char * Des(char *src, int srcLen, char *key, int keyLen, int start, int end, int step)
 {
-	//int srcLen = strnlen_s(src, MAX_LENGTH);
-	//int keyLen = strnlen_s(key, MAX_LENGTH);
 	int encryptedDataLen;
 	int encryptBlockNum;
+	char msg[MAX_LENGTH];
 
 	// The length of the key should be 64 bits, 8 bytes.
 	if (keyLen != KEY_LENGTH)
@@ -381,40 +369,142 @@ char * Des(char *src, int srcLen, char *key, int keyLen, int start, int end, int
 
 	for (int i = 0; i < encryptBlockNum; i++)
 	{
+		if (W_DEBUG)
+		{
+			if (step == 1)
+			{
+				sprintf_s(msg, "%dth block\n", i);
+				printBitsToFile(debugencryptfilename, NULL, 0, msg);
+			}
+			else
+			{
+				sprintf_s(msg, "%dth block\n", i);
+				printBitsToFile(debugdecryptfilename, NULL, 0, msg);
+			}
+		}
+
 		char *blockData = new char[BLOCK_LENGTH];
 		
-		char *leftPart;
-		char *rightPart;
-
+		char *leftPart = NULL;
+		char *rightPart = NULL;
 		
 		for (int j = 0; j < BLOCK_LENGTH; j++)
 		{
 			blockData[j] = src[i*BLOCK_LENGTH + j];
 		}
 
-		char *blockBits = IPTransform(blockData, BLOCK_LENGTH);
+		char *blockOriginBits = getBits(blockData, BLOCK_LENGTH);
+		if (W_DEBUG)
+		{
+			if (step == 1)
+			{
+				printBitsToFile(debugencryptfilename, blockOriginBits, 64, "origin bits\n");
+			}
+			else
+			{
+				printBitsToFile(debugdecryptfilename, blockOriginBits, 64, "origin bits\n");
+			}
+		}
+
+		char *blockBits = BatchTransform(blockOriginBits, gIPTransform, 64);
+		if (W_DEBUG)
+		{
+			if (step == 1)
+			{
+				printBitsToFile(debugencryptfilename, blockBits, 64, "ip transformed\n");
+			}
+			else
+			{
+				printBitsToFile(debugdecryptfilename, blockBits, 64, "ip transformed\n");
+			}
+		}
 
 		for (int j = start; j != end; j += step)
 		{
 			char *roundkey = roundKeys[j];
-			char *extendTransformed = new char[48];
+			char *extendTransformed;
+
+			if (W_DEBUG)
+			{
+				sprintf_s(msg, "\n%dth round\n", j);
+				if (step == 1)
+				{
+					printBitsToFile(debugencryptfilename, NULL, 0, msg);
+				}
+				else
+				{
+					printBitsToFile(debugdecryptfilename, NULL, 0, msg);
+				}
+			}
 
 			leftPart = copyBits(blockBits, 32); // with length of 32
 			rightPart = copyBits(blockBits + 32, 32);
-			extendTransformed = ExtentedTransform(rightPart, 48);
+			extendTransformed = BatchTransform(rightPart, gExtentedTransform, 48);
 
 			char *xoredBits = xorBits(roundkey, extendTransformed, 48);
+
+			if (W_DEBUG)
+			{
+				if (step == 1)
+				{
+					printBitsToFile(debugencryptfilename, xoredBits, 48, "xor before sbox\n");
+				}
+				else
+				{
+					printBitsToFile(debugdecryptfilename, xoredBits, 48, "xor before sbox\n");
+				}
+			}
+
 			char *sBoxTransformed = SBoxTransform(xoredBits);
-			char *pBoxTransformed = PBoxTransform(sBoxTransformed);
+
+			if (W_DEBUG)
+			{
+				if (step == 1)
+				{
+					printBitsToFile(debugencryptfilename, sBoxTransformed, 32, "sbox\n");
+				}
+				else
+				{
+					printBitsToFile(debugdecryptfilename, sBoxTransformed, 32, "sbox\n");
+				}
+			}
+
+			char *pBoxTransformed = BatchTransform(sBoxTransformed, gPBox, 32);
 			char *finalxoredBits = xorBits(pBoxTransformed, leftPart, 32);
 			
 			delete[] blockBits;
 			blockBits = mergeBits(rightPart, 32, finalxoredBits, 32);
+
+			if (W_DEBUG)
+			{
+				if (step == 1)
+				{
+					printBitsToFile(debugencryptfilename, blockBits, 64);
+				}
+				else
+				{
+					sprintf_s(msg, "%dth round\n", j);
+					printBitsToFile(debugdecryptfilename, blockBits, 64);
+				}
+			}
+
 			delete[] extendTransformed;
 			delete[] finalxoredBits;
 		}
+		if (leftPart)
+		{
+			delete[] leftPart;
+		}
+		if (rightPart)
+		{
+			delete[] rightPart;
+		}
 
-		char *blockResult = IPTranspose(blockBits);
+		leftPart = copyBits(blockBits, 32); // with length of 32
+		rightPart = copyBits(blockBits + 32, 32);
+		delete[] blockBits;
+		blockBits = mergeBits(rightPart, 32, leftPart, 32);
+		char *blockResult = BatchTransform(blockBits, gIPTranspose, 64);
 		char *blockBytes = fromBits(blockResult, 64);
 
 		for (int j = 0; j < BLOCK_LENGTH; j++)
@@ -422,9 +512,33 @@ char * Des(char *src, int srcLen, char *key, int keyLen, int start, int end, int
 			encryptedData[i*BLOCK_LENGTH + j] = blockBytes[j];
 		}
 
+		if (W_DEBUG)
+		{
+			if (step == 1)
+			{
+				printBitsToFile(debugencryptfilename, blockResult, 64, "final result\n");
+			}
+			else
+			{
+				printBitsToFile(debugdecryptfilename, blockResult, 64, "final result\n");
+			}
+		}
+
 		delete[] blockBytes;
 		delete[] blockBits;
 		delete[] blockData;
+
+		if (W_DEBUG)
+		{
+			if (step == 1)
+			{
+				printBitsToFile(debugencryptfilename, NULL, 0);
+			}
+			else
+			{
+				printBitsToFile(debugdecryptfilename, NULL, 0);
+			}
+		}
 	}
 
 	for (int i = 0; i < ROUND_NUM; i++)
@@ -443,6 +557,13 @@ char * Des(char *src, int srcLen, char *key, int keyLen, int start, int end, int
 	return encryptedData;
 }
 
+void resetFile(char *filename)
+{
+	FILE *file;
+	fopen_s(&file, filename, "w");
+	fclose(file);
+}
+
 int _tmain(int argc, _TCHAR* argv[])
 {
 	char *data = "This is a test.";
@@ -454,6 +575,11 @@ int _tmain(int argc, _TCHAR* argv[])
 	
 	if (encrypt)
 	{
+		if (W_DEBUG)
+		{
+			resetFile(debugencryptfilename);
+		}
+
 		result = Des(data, strlen(data), key, strlen(key), ENCODE);
 		for (int i = 0; i < 16; i++)
 		{
@@ -464,11 +590,12 @@ int _tmain(int argc, _TCHAR* argv[])
 	}
 	else
 	{
+		resetFile(debugdecryptfilename);
 		char *code = new char[17];
 		fopen_s(&file, "code.txt", "rb");
 		fread_s(code, 16, 1, 16, file);
 		code[16] = 0;
-		result = Des(code, strlen(code), key, strlen(key), DECODE);
+		result = Des(code, 16, key, strlen(key), DECODE);
 		printf(result);
 	}
 

@@ -1,4 +1,4 @@
-﻿生成启动时间为 2017/10/26 星期四 10:03:01。
+﻿生成启动时间为 2017/10/26 星期四 20:33:56。
      1>项目“D:\_Programming\C++\wDESDemo\wDESDemo\wDESDemo.vcxproj”在节点 2 上(Build 个目标)。
      1>ClCompile:
          D:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /D _LIB /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Yu"stdafx.h" /Fp"Debug\wDESDemo.pch" /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt wDESDemo.cpp
@@ -11,4 +11,4 @@
 
 生成成功。
 
-已用时间 00:00:00.77
+已用时间 00:00:00.92
