@@ -12,6 +12,8 @@
 #define XOR_KEY_LENGTH	6
 #define ROUND_NUM		16
 
+#define ENCODE 0,16,1       
+#define DECODE 15,-1,-1     
 
 int gIPTransform[64] =
 {
@@ -67,8 +69,28 @@ int gSBox[8][64]=
 	{ 13, 2, 8, 4, 6, 15, 11, 1, 10, 9, 3, 14, 5, 0, 12, 7, 1, 15, 13, 8, 10, 3, 7, 4, 12, 5, 6, 11, 0, 14, 9, 2, 7, 11, 4, 1, 9, 12, 14, 2, 0, 6, 10, 13, 15, 3, 5, 8, 2, 1, 14, 7, 4, 10, 8, 13, 15, 12, 9, 0, 3, 5, 6, 11 }
 };
 
+int gPBox[32] = 
+{
+	16, 7, 20, 21, 29, 12, 28, 17, 
+	1, 15, 23, 26, 5, 18, 31, 10, 
+	2, 8, 24, 14, 32, 27, 3, 9, 
+	19, 13, 30, 6, 22, 11, 4, 25
+};
+
+int gIPTranspose[64] =
+{
+	40, 8, 48, 16, 56, 24, 64, 32,
+	39, 7, 47, 15, 55, 23, 63, 31,
+	38, 6, 46, 14, 54, 22, 62, 30, 
+	37, 5, 45, 13, 53, 21, 61, 29,
+	36, 4, 44, 12, 52, 20, 60, 28,
+	35, 3, 43, 11, 51, 19, 59, 27,
+	34, 2, 42, 10, 50, 18, 58, 26,
+	33, 1, 41, 9, 49, 17, 57, 25
+};
+
 // get bits array(0,1) from a char array
-int *getBits(char *data, int dataLen)
+char *getBits(char *data, int dataLen)
 {
 	if (data == NULL)
 	{
@@ -77,7 +99,7 @@ int *getBits(char *data, int dataLen)
 
 	//int dataLen = strnlen_s(data, MAX_LENGTH);
 	int bitsLen = dataLen * BYTE_TO_BIT;
-	int *bits = new int[bitsLen];
+	char *bits = new char[bitsLen];
 
 	for (int i = 0; i < dataLen; i++)
 	{
@@ -93,7 +115,7 @@ int *getBits(char *data, int dataLen)
 
 // get char array from bits
 // len --> the length of bits
-char *fromBits(int * bits, int len)
+char *fromBits(char * bits, int len)
 {
 	int cLen = len / BYTE_TO_BIT; // should estimate whether the length of bits can be divisible by BYTE_TO_BIT or not
 	char *data = new char[cLen];
@@ -112,9 +134,9 @@ char *fromBits(int * bits, int len)
 }
 
 // copy bits from src to a new array with length len.
-int *copyBits(int *src, int len)
+char *copyBits(char *src, int len)
 {
-	int* cpBits = new int[len];
+	char* cpBits = new char[len];
 
 	try
 	{
@@ -133,9 +155,9 @@ int *copyBits(int *src, int len)
 }
 
 // merge left and right into a whole part
-int *mergeBits(int *left, int leftLen, int *right, int rightLen)
+char *mergeBits(char *left, int leftLen, char *right, int rightLen)
 {
-	int *merged = new int[leftLen + rightLen];
+	char *merged = new char[leftLen + rightLen];
 
 	for (int i = 0; i < leftLen; i++)
 	{
@@ -150,9 +172,9 @@ int *mergeBits(int *left, int leftLen, int *right, int rightLen)
 }
 
 // xor in bits
-int *xorBits(int *bits1, int *bits2, int len)
+char *xorBits(char *bits1, char *bits2, int len)
 {
-	int *xoredBits = new int[len];
+	char *xoredBits = new char[len];
 
 	for (int i = 0; i < len; i++)
 	{
@@ -162,16 +184,16 @@ int *xorBits(int *bits1, int *bits2, int len)
 	return xoredBits;
 }
 
-int ** getRoundKeys(char *key, int roundNum)
+char ** getRoundKeys(char *key, int roundNum)
 {
-	int **roundKeys = new int*[roundNum];
+	char **roundKeys = new char*[roundNum];
 	//for (int i = 0; i < roundNum; i++)
 	//{
 	//	roundKeys[i] = new char[XOR_KEY_LENGTH];
 	//}
 
-	int *blockBits = getBits(key, KEY_LENGTH);
-	int *transformedBits = new int[56];
+	char *blockBits = getBits(key, KEY_LENGTH);
+	char *transformedBits = new char[56];
 	for (int i = 0; i < 56; i++)
 	{
 		//int temp = gKeyTransorm[i] - 1;
@@ -182,10 +204,10 @@ int ** getRoundKeys(char *key, int roundNum)
 
 	for (int i = 0; i < roundNum; i++)
 	{
-		int *shiftedBits = new int[56];
+		char *shiftedBits = new char[56];
 		int shift = gKeyCircleShift[i];
-		int *temp = new int[shift];
-		int *keyBits = new int[48];
+		char *temp = new char[shift];
+		char *keyBits = new char[48];
 		
 		// left
 		for (int j = 0; j < shift; j++)
@@ -236,10 +258,10 @@ int ** getRoundKeys(char *key, int roundNum)
 	return roundKeys;
 }
 
-int * IPTransform(char *data, int dLen)
+char * IPTransform(char *data, int dLen)
 {
-	int *dataBits = getBits(data, dLen);
-	int *transformedBits = new int[dLen*BYTE_TO_BIT];
+	char *dataBits = getBits(data, dLen);
+	char *transformedBits = new char[dLen*BYTE_TO_BIT];
 
 	for (int i = 0; i < dLen*BYTE_TO_BIT; i++)
 	{
@@ -249,9 +271,9 @@ int * IPTransform(char *data, int dLen)
 	return transformedBits;
 }
 
-int * ExtentedTransform(int *bits, int transformLen)
+char * ExtentedTransform(char *bits, int transformLen)
 {
-	int *transformedBits = new int[transformLen];
+	char *transformedBits = new char[transformLen];
 
 	for (int i = 0; i < transformLen; i++)
 	{
@@ -261,15 +283,15 @@ int * ExtentedTransform(int *bits, int transformLen)
 	return transformedBits;
 }
 
-int * SBoxTransform(int *bits)
+char * SBoxTransform(char *bits)
 {
-	int *transfomedBits = new int[32];
+	char *transfomedBits = new char[32];
 
 	// eight boxes
 	for (int i = 0; i < 8; i++)
 	{
-		int row = bits[i * 6] & bits[i * 6 + 5];
-		int rank = bits[i * 6 + 1] & bits[i * 6 + 2] & bits[i * 6 + 3] & bits[i * 6 + 4];
+		int row = (bits[i * 6] << 1) & bits[i * 6 + 5];
+		int rank = (bits[i * 6 + 1] << 3) | (bits[i * 6 + 2] << 2) | (bits[i * 6 + 3] << 1) | bits[i * 6 + 4];
 
 		int temp = gSBox[i][row * 16 + rank];
 
@@ -282,7 +304,33 @@ int * SBoxTransform(int *bits)
 	return transfomedBits;
 }
 
-char * encryptDes(char *src, int srcLen, char *key, int keyLen)
+char * PBoxTransform(char *bits)
+{
+	char *transfomedBits = new char[32];
+
+	for (int i = 0; i < 32; i++)
+	{
+		transfomedBits[i] = bits[gPBox[i] - 1];
+	}
+
+	return transfomedBits;
+}
+
+char * IPTranspose(char *bits)
+{
+	char *transfomedBits = new char[32];
+
+	for (int i = 0; i < 32; i++)
+	{
+		transfomedBits[i] = bits[gPBox[i] - 1];
+	}
+
+	return transfomedBits;
+}
+
+// encrypt 0,16,1
+// decrypt 15,-1,-1
+char * Des(char *src, int srcLen, char *key, int keyLen, int start, int end, int step)
 {
 	//int srcLen = strnlen_s(src, MAX_LENGTH);
 	//int keyLen = strnlen_s(key, MAX_LENGTH);
@@ -295,59 +343,87 @@ char * encryptDes(char *src, int srcLen, char *key, int keyLen)
 		return NULL;
 	}
 	
+	char *data = NULL;
 	// 
 	if (srcLen % BLOCK_LENGTH != 0)
 	{
 		encryptedDataLen = (srcLen / BLOCK_LENGTH + 1)*BLOCK_LENGTH;
+		data = new char[encryptedDataLen];
+		for (int i = 0; i < srcLen; i++)
+		{
+			data[i] = src[i];
+		}
+
+		for (int i = 0; i < encryptedDataLen - srcLen; i++)
+		{
+			data[srcLen + i] = 0;
+		}
 	}
 	else
 	{
 		encryptedDataLen = srcLen;
+		data = new char[encryptedDataLen];
+		for (int i = 0; i < encryptedDataLen; i++)
+		{
+			data[i] = src[i];
+		}
 	}
 	char * encryptedData = new char[encryptedDataLen];
 
-	int **roundKeys = getRoundKeys(key,ROUND_NUM);
+	char **roundKeys = getRoundKeys(key, ROUND_NUM);
 	if (roundKeys == NULL)
 	{
 		return NULL;
 	}
 
 	// Compute the number of block
-	encryptBlockNum = srcLen / BLOCK_LENGTH;
+	encryptBlockNum = encryptedDataLen / BLOCK_LENGTH;
 
 	for (int i = 0; i < encryptBlockNum; i++)
 	{
 		char *blockData = new char[BLOCK_LENGTH];
-		int *leftPart;
-		int *rightPart;
+		
+		char *leftPart;
+		char *rightPart;
 
+		
 		for (int j = 0; j < BLOCK_LENGTH; j++)
 		{
-			blockData[i] = src[i*BLOCK_LENGTH + j];
+			blockData[j] = src[i*BLOCK_LENGTH + j];
 		}
 
-		int *blockBits = IPTransform(blockData, BLOCK_LENGTH);
+		char *blockBits = IPTransform(blockData, BLOCK_LENGTH);
 
-		for (int j = 0; j < ROUND_NUM; j++)
+		for (int j = start; j != end; j += step)
 		{
-			int *roundkey = roundKeys[j];
+			char *roundkey = roundKeys[j];
+			char *extendTransformed = new char[48];
 
-			leftPart = copyBits(blockBits,32); // with length of 32
-			rightPart = ExtentedTransform(blockBits + BLOCK_LENGTH*BYTE_TO_BIT / 2, 48);
+			leftPart = copyBits(blockBits, 32); // with length of 32
+			rightPart = copyBits(blockBits + 32, 32);
+			extendTransformed = ExtentedTransform(rightPart, 48);
 
-			int *xoredBits = xorBits(roundkey, rightPart, 48);
-			int *sBoxTransformed = SBoxTransform(xoredBits);
-
-			//pbox
-
-			int *finalxoredBits = xorBits(sBoxTransformed, leftPart, 32);
+			char *xoredBits = xorBits(roundkey, extendTransformed, 48);
+			char *sBoxTransformed = SBoxTransform(xoredBits);
+			char *pBoxTransformed = PBoxTransform(sBoxTransformed);
+			char *finalxoredBits = xorBits(pBoxTransformed, leftPart, 32);
 			
 			delete[] blockBits;
 			blockBits = mergeBits(rightPart, 32, finalxoredBits, 32);
+			delete[] extendTransformed;
+			delete[] finalxoredBits;
 		}
 
-		// ip transpose
+		char *blockResult = IPTranspose(blockBits);
+		char *blockBytes = fromBits(blockResult, 64);
 
+		for (int j = 0; j < BLOCK_LENGTH; j++)
+		{
+			encryptedData[i*BLOCK_LENGTH + j] = blockBytes[j];
+		}
+
+		delete[] blockBytes;
+		delete[] blockBits;
 		delete[] blockData;
 	}
 
@@ -369,11 +445,35 @@ char * encryptDes(char *src, int srcLen, char *key, int keyLen)
 
 int _tmain(int argc, _TCHAR* argv[])
 {
-	char *data = "123456789101112";
-	char *key = "87654321";
+	char *data = "This is a test.";
+	char *key = "12345678";
 
-	char *code = encryptDes(data, strlen(data), key, strlen(key));
+	bool encrypt = 0;
+	char *result = NULL;
+	FILE *file = NULL;
+	
+	if (encrypt)
+	{
+		result = Des(data, strlen(data), key, strlen(key), ENCODE);
+		for (int i = 0; i < 16; i++)
+		{
+			printf("%02x", 0xff & result[i]);
+		}
+		fopen_s(&file, "code.txt", "wb");
+		fwrite(result, sizeof(char), 16, file);
+	}
+	else
+	{
+		char *code = new char[17];
+		fopen_s(&file, "code.txt", "rb");
+		fread_s(code, 16, 1, 16, file);
+		code[16] = 0;
+		result = Des(code, strlen(code), key, strlen(key), DECODE);
+		printf(result);
+	}
 
+	delete[] result;
+	system("pause");
 	return 0;
 }
 
